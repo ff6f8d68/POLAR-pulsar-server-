@@ -1,0 +1,26 @@
+{
+  "name": "polar",
+  "version": "1.2.1",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "atom20003113",
+  "license": "ISC",
+  "description": "vpn/proxy/ip vanisher",
+  "repository": {
+    "type": "git",
+    "url": "jit.co"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "puppeteer": "^23.6.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-anonymize-ua": "^2.4.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "ws": "^8.18.0"
+  }
+}
