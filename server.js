@@ -1,58 +1,72 @@
+const puppeteer = require('puppeteer');
 const WebSocket = require('ws');
-const express = require('express');
-const app = express();
-const PORT = 80;
+const wsServer = new WebSocket.Server({ port: 80 });
+let browserInstance;
 
-// Serve the dashboard HTML
-app.get('/', (req, res) => {
-    res.send(`
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>POLAR VPN Dashboard</title>
-        </head>
-        <body>
-            <h1>POLAR VPN Dashboard</h1>
-            <button onclick="startVpn()">Start VPN</button>
-            <button onclick="stopVpn()">Stop VPN</button>
-            <input type="text" id="url" placeholder="Enter URL">
-            <button onclick="browse()">Browse</button>
-            <div id="output"></div>
-            <script>
-                const ws = new WebSocket('ws://localhost:9091');
-
-                ws.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    const output = document.getElementById('output');
-                    if (data.status) {
-                        output.textContent = data.status;
-                    } else if (data.content) {
-                        output.innerHTML = data.content;
-                    } else if (data.error) {
-                        output.textContent = 'Error: ' + data.error;
-                    }
-                };
-
-                function startVpn() {
-                    ws.send(JSON.stringify({ action: 'startVpn' }));
+wsServer.on('connection', (ws) => {
+    ws.on('message', async (message) => {
+        const data = JSON.parse(message);
+        
+        switch (data.action) {
+            case 'startVpn':
+                await startVpn(ws);
+                break;
+            case 'stopVpn':
+                await stopVpn(ws);
+                break;
+            case 'browse':
+                if (data.url) {
+                    await browse(ws, data.url);
+                } else {
+                    ws.send(JSON.stringify({ error: 'No URL provided' }));
                 }
-
-                function stopVpn() {
-                    ws.send(JSON.stringify({ action: 'stopVpn' }));
-                }
-
-                function browse() {
-                    const url = document.getElementById('url').value;
-                    ws.send(JSON.stringify({ action: 'browse', url }));
-                }
-            </script>
-        </body>
-        </html>
-    `);
+                break;
+            default:
+                ws.send(JSON.stringify({ error: 'Unknown action' }));
+                break;
+        }
+    });
 });
 
-app.listen(PORT, () => {
-    console.log(`Client dashboard running at http://localhost:${PORT}`);
-});
+// Start VPN (Puppeteer instance to simulate browsing)
+async function startVpn(ws) {
+    try {
+        browserInstance = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        ws.send(JSON.stringify({ status: 'VPN connected' }));
+    } catch (error) {
+        ws.send(JSON.stringify({ error: 'Failed to connect VPN', details: error.toString() }));
+    }
+}
+
+// Stop VPN (Close Puppeteer instance)
+async function stopVpn(ws) {
+    try {
+        await browserInstance?.close();
+        browserInstance = null;
+        ws.send(JSON.stringify({ status: 'VPN disconnected' }));
+    } catch (error) {
+        ws.send(JSON.stringify({ error: 'Failed to disconnect VPN', details: error.toString() }));
+    }
+}
+
+// Browse a URL (navigate in a new page in Puppeteer)
+async function browse(ws, url) {
+    if (!browserInstance) {
+        ws.send(JSON.stringify({ error: 'VPN is not connected' }));
+        return;
+    }
+
+    const page = await browserInstance.newPage();
+    try {
+        await page.goto(url, { waitUntil: 'networkidle2' });
+        const content = await page.content();
+        ws.send(JSON.stringify({ content }));
+    } catch (error) {
+        ws.send(JSON.stringify({ error: 'Failed to browse', details: error.toString() }));
+    } finally {
+        await page.close();
+    }
+}
