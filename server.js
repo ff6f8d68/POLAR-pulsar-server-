@@ -1,116 +1,58 @@
+const WebSocket = require('ws');
 const express = require('express');
-const bodyParser = require('body-parser');
-const puppeteer = require('puppeteer-extra');
-const AnonymizeUA = require('puppeteer-extra-plugin-anonymize-ua');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-
-puppeteer.use(AnonymizeUA());
-puppeteer.use(StealthPlugin());
-
 const app = express();
-const port = process.env.PORT || 3000; // Use the port set by the hosting service
+const PORT = 80;
 
-app.use(bodyParser.json());
+// Serve the dashboard HTML
+app.get('/', (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>POLAR VPN Dashboard</title>
+        </head>
+        <body>
+            <h1>POLAR VPN Dashboard</h1>
+            <button onclick="startVpn()">Start VPN</button>
+            <button onclick="stopVpn()">Stop VPN</button>
+            <input type="text" id="url" placeholder="Enter URL">
+            <button onclick="browse()">Browse</button>
+            <div id="output"></div>
+            <script>
+                const ws = new WebSocket('ws://localhost:9091');
 
-const clients = new Map(); // Map to keep track of clients and their browser instances
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    const output = document.getElementById('output');
+                    if (data.status) {
+                        output.textContent = data.status;
+                    } else if (data.content) {
+                        output.innerHTML = data.content;
+                    } else if (data.error) {
+                        output.textContent = 'Error: ' + data.error;
+                    }
+                };
 
-// Start VPN connection for a client
-app.post('/start-vpn', async (req, res) => {
-    const clientId = req.body.clientId;
-    if (!clientId) return res.status(400).send({ error: 'Client ID is required' });
+                function startVpn() {
+                    ws.send(JSON.stringify({ action: 'startVpn' }));
+                }
 
-    // Check if the client is already connected
-    if (clients.has(clientId)) {
-        return res.status(400).send({ error: 'VPN already connected for this client' });
-    }
+                function stopVpn() {
+                    ws.send(JSON.stringify({ action: 'stopVpn' }));
+                }
 
-    try {
-        // Launch a new Puppeteer browser instance for this client
-        const browserInstance = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        });
-
-        // Store the browser instance for the client
-        clients.set(clientId, { browserInstance });
-        res.send({ status: 'VPN connected' });
-    } catch (error) {
-        console.error('Error in start-vpn:', error);
-        res.status(500).send({ error: 'Failed to connect VPN', details: error.toString() });
-    }
+                function browse() {
+                    const url = document.getElementById('url').value;
+                    ws.send(JSON.stringify({ action: 'browse', url }));
+                }
+            </script>
+        </body>
+        </html>
+    `);
 });
 
-// Stop VPN connection for a client
-app.post('/stop-vpn', async (req, res) => {
-    const clientId = req.body.clientId;
-    if (!clientId || !clients.has(clientId)) {
-        return res.status(400).send({ error: 'Client not connected' });
-    }
-
-    const client = clients.get(clientId);
-    try {
-        await client.browserInstance.close(); // Close the browser instance
-        clients.delete(clientId); // Remove the client from the map
-        res.send({ status: 'VPN disconnected' });
-    } catch (error) {
-        console.error('Error in stop-vpn:', error);
-        res.status(500).send({ error: 'Failed to disconnect VPN', details: error.toString() });
-    }
-});
-
-// Browse a URL using the client's VPN session
-app.post('/browse', async (req, res) => {
-    const clientId = req.body.clientId;
-    const url = req.body.url;
-    const options = req.body.options || {};
-
-    // Validate client connection
-    if (!clientId || !clients.has(clientId)) {
-        return res.status(400).send({ error: 'VPN is not connected' });
-    }
-
-    const client = clients.get(clientId);
-    const page = await client.browserInstance.newPage(); // Open a new page for the client
-    try {
-        console.log('Client ID:', clientId, 'Browsing to:', url);
-
-        // Set user agent if provided
-        if (options.userAgent) {
-            await page.setUserAgent(options.userAgent);
-        }
-
-        // Clear cookies if requested
-        if (options.deleteCookies) {
-            await page.deleteCookie(...await page.cookies());
-        } else if (options.customCookies) {
-            const cookieList = options.customCookies.map(cookie => ({
-                name: cookie.name,
-                value: cookie.value,
-                domain: new URL(url).hostname,
-            }));
-            await page.setCookie(...cookieList);
-        }
-
-        // Set IP spoofing headers
-        await page.setExtraHTTPHeaders({
-            'X-Forwarded-For': options.fakeIp || '192.168.0.1',
-            'Client-IP': options.fakeIp || '192.168.0.1',
-            'X-Real-IP': options.fakeIp || '192.168.0.1',
-        });
-
-        // Navigate to the specified URL
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-        const content = await page.content();
-        res.send({ content });
-    } catch (error) {
-        console.error('Error in browse:', error);
-        res.status(500).send({ error: 'Failed to browse', details: error.toString() });
-    } finally {
-        await page.close(); // Ensure the page is closed after use
-    }
-});
-
-// Start the server
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+app.listen(PORT, () => {
+    console.log(`Client dashboard running at http://localhost:${PORT}`);
 });
