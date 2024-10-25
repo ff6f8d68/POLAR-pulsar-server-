@@ -1,14 +1,14 @@
 {
-  "name": "polar",
+  "name": "polar pulsar",
   "version": "1.2.1",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "atom20003113",
   "license": "ISC",
-  "description": "vpn/proxy/ip vanisher",
+  "description": "serverside",
   "repository": {
     "type": "git",
     "url": "jit.co"
