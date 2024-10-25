@@ -5,6 +5,10 @@
   "scripts": {
     "test": ""
   },
+  "scripts": {
+    "install-browser": "npx puppeteer browsers install chrome",
+    "start": "npm run install-browser && node server.js"
+  },
   "keywords": [],
   "author": "atom20003113",
   "license": "ISC",
