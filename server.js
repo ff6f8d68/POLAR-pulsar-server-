@@ -28,7 +28,7 @@ wsServer.on('connection', (ws) => {
     });
 });
 
-// Start VPN (Puppeteer instance to simulate browsing)
+
 async function startVpn(ws) {
     try {
         browserInstance = await puppeteer.launch({
@@ -41,7 +41,7 @@ async function startVpn(ws) {
     }
 }
 
-// Stop VPN (Close Puppeteer instance)
+
 async function stopVpn(ws) {
     try {
         await browserInstance?.close();
@@ -52,7 +52,7 @@ async function stopVpn(ws) {
     }
 }
 
-// Browse a URL (navigate in a new page in Puppeteer)
+
 async function browse(ws, url) {
     if (!browserInstance) {
         ws.send(JSON.stringify({ error: 'VPN is not connected' }));
