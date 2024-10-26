@@ -6,7 +6,7 @@
     "test": ""
   },
   "scripts": {
-    "install-browser": "npx puppeteer browsers install chrome",
+    "install-browser": "echo npx puppeteer browsers install chrome",
     "start": "npm run install-browser && node server.js"
   },
   "keywords": [],
